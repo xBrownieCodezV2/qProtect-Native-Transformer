@@ -1,5 +1,7 @@
 # Native Transformer for qProtect
 
+Video tutorial: https://www.youtube.com/watch?v=_QxPAAzNcdA
+
 ## Requirements
 - [qProtect (Paid)](https://mdma.dev) v1.10.0 or newer
 - [CMake](https://cmake.org/)
