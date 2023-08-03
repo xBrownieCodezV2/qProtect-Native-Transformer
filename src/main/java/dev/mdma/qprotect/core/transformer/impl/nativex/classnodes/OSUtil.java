@@ -59,7 +59,7 @@ public class OSUtil implements Opcodes {
         methodVisitor.visitFieldInsn(GETSTATIC, "de/brownie/nativeutil/OSUtil", "osName", "Ljava/lang/String;");
         methodVisitor.visitLdcInsn("nux");
         methodVisitor.visitMethodInsn(INVOKEVIRTUAL, "java/lang/String", "contains", "(Ljava/lang/CharSequence;)Z", false);
-        methodVisitor.visitJumpInsn(IFEQ, label3);
+        methodVisitor.visitJumpInsn(IFNE, label3);
         methodVisitor.visitFieldInsn(GETSTATIC, "de/brownie/nativeutil/OSUtil", "osName", "Ljava/lang/String;");
         methodVisitor.visitLdcInsn("aix");
         methodVisitor.visitMethodInsn(INVOKEVIRTUAL, "java/lang/String", "contains", "(Ljava/lang/CharSequence;)Z", false);
