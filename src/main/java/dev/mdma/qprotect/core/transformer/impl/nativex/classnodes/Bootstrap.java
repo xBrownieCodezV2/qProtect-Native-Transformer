@@ -20,8 +20,12 @@ public class Bootstrap implements Opcodes {
       MethodNode mainMethodNode = new MethodNode(Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC, "main", "([Ljava/lang/String;)V", null, new String[]{"java/lang/Exception"});
       mainMethodNode.instructions.add(new LdcInsnNode(libName));
       mainMethodNode.instructions.add(new MethodInsnNode(Opcodes.INVOKESTATIC, "de/brownie/nativeutil/NativeUtils", "loadLibraryFromJar", "(Ljava/lang/String;)V", false));
-      mainMethodNode.instructions.add(new VarInsnNode(Opcodes.ALOAD, 0));
-      mainMethodNode.instructions.add(new MethodInsnNode(Opcodes.INVOKESTATIC, mainClass, "main", "([Ljava/lang/String;)V", false));
+
+      //check if we have a standalone application or forge mod
+      if(mainClass != null) {
+         mainMethodNode.instructions.add(new VarInsnNode(Opcodes.ALOAD, 0));
+         mainMethodNode.instructions.add(new MethodInsnNode(Opcodes.INVOKESTATIC, mainClass, "main", "([Ljava/lang/String;)V", false));
+      }
       mainMethodNode.instructions.add(new InsnNode(Opcodes.RETURN));
       classNode.methods.add(mainMethodNode);
 

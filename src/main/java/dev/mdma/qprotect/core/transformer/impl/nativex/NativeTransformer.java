@@ -11,16 +11,14 @@ import dev.mdma.qprotect.api.jar.JarFile;
 import dev.mdma.qprotect.api.qProtectAPI;
 import dev.mdma.qprotect.api.transformer.ClassTransformer;
 import dev.mdma.qprotect.api.transformer.TransformException;
+import dev.mdma.qprotect.api.utils.BytecodeUtils;
 import dev.mdma.qprotect.core.transformer.impl.nativex.classnodes.Bootstrap;
 
 import dev.mdma.qprotect.core.transformer.impl.nativex.classnodes.NativeUtils;
 import dev.mdma.qprotect.core.transformer.impl.nativex.classnodes.OS;
 import dev.mdma.qprotect.core.transformer.impl.nativex.classnodes.OSUtil;
 import org.objectweb.asm.Opcodes;
-import org.objectweb.asm.tree.ClassNode;
-import org.objectweb.asm.tree.InvokeDynamicInsnNode;
-import org.objectweb.asm.tree.MethodInsnNode;
-import org.objectweb.asm.tree.MethodNode;
+import org.objectweb.asm.tree.*;
 import org.tinylog.Logger;
 
 import java.io.ByteArrayInputStream;
@@ -30,8 +28,11 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.jar.Attributes;
 import java.util.jar.Manifest;
 
@@ -208,29 +209,45 @@ public class NativeTransformer extends ClassTransformer {
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
-
+        final AtomicReference<String> mainClass = new AtomicReference<>();
+        AtomicBoolean standalone = new AtomicBoolean(true);
+        ArrayList<ClassNode> mainNodes = new ArrayList<>();
         qProtectAPI.Factory.getAPI().getResources().forEach(resourceEntry -> {
-            if(resourceEntry.getFileName().equals("META-INF/MANIFEST.MF")) {
+            if(resourceEntry.getFileName().equals("mcmod.info")) {
+                Logger.info("detected forge mod");
+                standalone.set(false);
+                jarFile.getClassPool().getClasses().forEach(classNode ->
+                        classNode.methods.stream().filter(methodNode ->
+                                methodNode.desc.equals("(Lnet/minecraftforge/fml/common/event/FMLInitializationEvent;)V")).forEach(
+                                methodNode -> {
+                                    mainNodes.add(classNode);
+                                    Logger.info("found forge main: {}", classNode.name);
+                                }));
+                mainNodes.forEach(classNode -> {
+                    MethodNode initializer = BytecodeUtils.getOrCreateClinit(classNode);
+                    InsnList injectList = new InsnList();
+                    injectList.add(new InsnNode(ACONST_NULL));
+                    injectList.add(new MethodInsnNode(INVOKESTATIC, "de/brownie/nativeutil/Bootstrap", "main", "([Ljava/lang/String;)V"));
+                    initializer.instructions.insertBefore(initializer.instructions.getFirst(), injectList);
+                });
+            }
+
+            if(resourceEntry.getFileName().equals("META-INF/MANIFEST.MF") && standalone.get()) {
+                Logger.info("detected application");
                 Logger.info(resourceEntry.getFileName());
                 Manifest manifest = null;
-                String mainClass = null;
                 try {
                     manifest = new Manifest(new ByteArrayInputStream(resourceEntry.getContent()));
                 } catch (IOException e) {
                     //throw new RuntimeException(e);
                 }
                 if(manifest != null)
-                    mainClass = manifest.getMainAttributes().getValue("Main-Class");
+                    mainClass.set(manifest.getMainAttributes().getValue("Main-Class"));
 
-                if(mainClass == null) {
+                if(mainClass.get() == null) {
                     Logger.warn("No Main-Class found in the MANIFEST.MF aborting Loader creation.");
                     return;
                 }
-
-                qProtectAPI.Factory.getAPI().getClassPool().addClass("de/brownie/nativeutil/Bootstrap", Bootstrap.getClassNode(mainClass.replace(".", "/"), "/" + projectName));
-                qProtectAPI.Factory.getAPI().getClassPool().addClass("de/brownie/nativeutil/NativeUtils", NativeUtils.getClassNode());
-                qProtectAPI.Factory.getAPI().getClassPool().addClass("de/brownie/nativeutil/OS", OS.getClassNode());
-                qProtectAPI.Factory.getAPI().getClassPool().addClass("de/brownie/nativeutil/OSUtil", OSUtil.getClassNode());
 
                 //manifest.getMainAttributes().replace("Main-Class", mainClass,"de.brownie.nativeutil.Bootstrap");
                 Logger.info("Replacing Main-Class in Manifest...");
@@ -243,9 +260,17 @@ public class NativeTransformer extends ClassTransformer {
                     //throw new RuntimeException(e);
                 }
                 resourceEntry.setContent(byteArrayOutputStream.toByteArray());
-                Logger.info("Loader created!");
             }
+
+            if(mainClass.get() != null)
+                mainClass.set(mainClass.get().replace(".", "/"));
         });
+
+        qProtectAPI.Factory.getAPI().getClassPool().addClass("de/brownie/nativeutil/Bootstrap", Bootstrap.getClassNode(mainClass.get(), "/" + projectName));
+        qProtectAPI.Factory.getAPI().getClassPool().addClass("de/brownie/nativeutil/NativeUtils", NativeUtils.getClassNode());
+        qProtectAPI.Factory.getAPI().getClassPool().addClass("de/brownie/nativeutil/OS", OS.getClassNode());
+        qProtectAPI.Factory.getAPI().getClassPool().addClass("de/brownie/nativeutil/OSUtil", OSUtil.getClassNode());
+        Logger.info("Loader created!");
 
         Logger.info("Native files written to {}!", cppDir);
 

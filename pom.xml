@@ -6,7 +6,7 @@
 
     <groupId>dev.mdma.qprotect</groupId>
     <artifactId>native-transformer</artifactId>
-    <version>1.0-SNAPSHOT</version>
+    <version>1.1-SNAPSHOT</version>
 
     <properties>
         <maven.compiler.source>8</maven.compiler.source>
@@ -25,7 +25,7 @@
         <dependency>
             <groupId>dev.mdma.qprotect</groupId>
             <artifactId>qprotect-api</artifactId>
-            <version>1.10.0</version>
+            <version>1.10.1</version>
         </dependency>
     </dependencies>
 
