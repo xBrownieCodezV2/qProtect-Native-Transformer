@@ -1,3 +1,4 @@
+
 # Native Transformer for qProtect
 
 Video tutorial: https://www.youtube.com/watch?v=_QxPAAzNcdA
@@ -8,6 +9,7 @@ Video tutorial: https://www.youtube.com/watch?v=_QxPAAzNcdA
 - Java Development Kit (Version 8)
 - Windows only:
     - [Visual Studio with C++ Package](https://visualstudio.microsoft.com/)
+    - or [MinGW](https://www.mingw-w64.org/)
 - Linux only:
     - [build-essential](https://packages.debian.org/de/source/sid/build-essential)
 - JAVA_HOME variable needs to be set otherwise won't work
@@ -20,12 +22,18 @@ Video tutorial: https://www.youtube.com/watch?v=_QxPAAzNcdA
 - Enable your desired transformers, click "Process" and wait for it to finish.
 - qProtect created a new folder called "cpp/" in the same directory as the output jar.
 
-For Windows:
+### For Windows: &nbsp;
+ (Visual Studio):
 - Open CMake-GUI select the "cpp/" directory and click "Configure" and then "Generate".
 - Open the project with Visual Studio and compile it.
-- Put the .dll into your output jar using 7-zip (or anything similar).
+- Put the .dll into your output jar using 7-zip (or anything similar). \
 
-For Linux:
+ (MinGW):  &nbsp;
+ - Open the terminal and go to the directory where the output is.
+ - Type "cmake -G "MinGW Makefiles cpp/"" and then "make" to start compiling the project.
+ - Put the .dll into your output jar using "zip output.jar compiled.so" .
+
+### For Linux:
 - Open the terminal and go to the directory where the output is.
 - Type "cmake cpp/" and then "make" to start compiling the project.
 - Put the .so into your output jar using "zip output.jar compiled.so" .

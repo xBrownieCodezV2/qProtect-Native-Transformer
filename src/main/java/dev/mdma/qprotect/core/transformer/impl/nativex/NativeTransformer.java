@@ -122,6 +122,10 @@ public class NativeTransformer extends ClassTransformer {
     public boolean runOnClass(String s, ClassNode classNode, JarFile jarFile) throws TransformException {
         nativeMethods = new StringBuilder();
         Logger.info("Processing " + classNode.name);
+        if(classNode.superName.equals("org/bukkit/plugin/java/JavaPlugin") || classNode.superName.equals("net/md_5/bungee/api/plugin/Plugin")) {
+            Logger.info("Skipping spigot entrypoint: {}", classNode.name);
+            return false;
+        }
 
         if (classNode.methods.stream().noneMatch(x -> x.name.equals("<clinit>"))) {
             classNode.methods.add(new MethodNode(Opcodes.ASM9, Opcodes.ACC_STATIC, "<clinit>", "()V", null,
@@ -177,7 +181,7 @@ public class NativeTransformer extends ClassTransformer {
 
             currentClassId++;
         } catch (IOException ex) {
-            Logger.error("Error while processing "+ classNode.name);
+            Logger.error("Error while processing " + classNode.name);
         }
 
         return false;
@@ -213,16 +217,32 @@ public class NativeTransformer extends ClassTransformer {
         AtomicBoolean standalone = new AtomicBoolean(true);
         ArrayList<ClassNode> mainNodes = new ArrayList<>();
         qProtectAPI.Factory.getAPI().getResources().forEach(resourceEntry -> {
+
+            //bukkit/bungee plugin
+            if (resourceEntry.getFileName().equals("plugin.yml") || resourceEntry.getFileName().equals("bungee.yml")) {
+                standalone.set(false);
+                jarFile.getClassPool().getClasses().stream().filter(classNode ->
+                        classNode.superName.equals("org/bukkit/plugin/java/JavaPlugin")
+                                || classNode.superName.equals("net/md_5/bungee/api/plugin/Plugin")).forEach(
+                        classNode -> {
+                            Logger.info("Found spigot entrypoint: {}", classNode.name);
+                            MethodNode initializer = BytecodeUtils.getOrCreateClinit(classNode);
+                            InsnList injectList = new InsnList();
+                            injectList.add(new InsnNode(ACONST_NULL));
+                            injectList.add(new MethodInsnNode(INVOKESTATIC, "de/brownie/nativeutil/Bootstrap", "main", "([Ljava/lang/String;)V"));
+                            initializer.instructions.insertBefore(initializer.instructions.getFirst(), injectList);
+                        });
+            }
+
             //forge mod
-            if(resourceEntry.getFileName().equals("mcmod.info")) {
-                Logger.info("Detected forge mod");
+            if (resourceEntry.getFileName().equals("mcmod.info")) {
                 standalone.set(false);
                 jarFile.getClassPool().getClasses().forEach(classNode ->
                         classNode.methods.stream().filter(methodNode ->
                                 methodNode.desc.equals("(Lnet/minecraftforge/fml/common/event/FMLInitializationEvent;)V")).forEach(
                                 methodNode -> {
                                     mainNodes.add(classNode);
-                                    Logger.info("found forge main: {}", classNode.name);
+                                    Logger.info("Found forge entrypoint: {}", classNode.name);
                                 }));
                 mainNodes.forEach(classNode -> {
                     MethodNode initializer = BytecodeUtils.getOrCreateClinit(classNode);
@@ -234,38 +254,37 @@ public class NativeTransformer extends ClassTransformer {
             }
 
             //fabric mod
-            if(resourceEntry.getFileName().equals("fabric.mod.json")) {
-                Logger.info("Detected fabric mod");
+            if (resourceEntry.getFileName().equals("fabric.mod.json")) {
                 standalone.set(false);
                 jarFile.getClassPool().getClasses().stream().filter(classNode ->
                         classNode.interfaces.contains("net/fabricmc/api/ModInitializer")).forEach(
-                                classNode -> {
-                                    Logger.info("Found fabric main: {}", classNode.name);
-                                    MethodNode initializer = BytecodeUtils.getOrCreateClinit(classNode);
-                                    InsnList injectList = new InsnList();
-                                    injectList.add(new InsnNode(ACONST_NULL));
-                                    injectList.add(new MethodInsnNode(INVOKESTATIC, "de/brownie/nativeutil/Bootstrap", "main", "([Ljava/lang/String;)V"));
-                                    initializer.instructions.insertBefore(initializer.instructions.getFirst(), injectList);
-                });
+                        classNode -> {
+                            Logger.info("Found fabric entrypoint: {}", classNode.name);
+                            MethodNode initializer = BytecodeUtils.getOrCreateClinit(classNode);
+                            InsnList injectList = new InsnList();
+                            injectList.add(new InsnNode(ACONST_NULL));
+                            injectList.add(new MethodInsnNode(INVOKESTATIC, "de/brownie/nativeutil/Bootstrap", "main", "([Ljava/lang/String;)V"));
+                            initializer.instructions.insertBefore(initializer.instructions.getFirst(), injectList);
+                        });
             }
 
             //standalone program
-            if(resourceEntry.getFileName().equals("META-INF/MANIFEST.MF") && standalone.get()) {
-                Logger.info("detected application");
-                Logger.info(resourceEntry.getFileName());
+            if (resourceEntry.getFileName().equals("META-INF/MANIFEST.MF") && standalone.get()) {
                 Manifest manifest = null;
                 try {
                     manifest = new Manifest(new ByteArrayInputStream(resourceEntry.getContent()));
                 } catch (IOException e) {
                     //throw new RuntimeException(e);
                 }
-                if(manifest != null)
+                if (manifest != null)
                     mainClass.set(manifest.getMainAttributes().getValue("Main-Class"));
 
-                if(mainClass.get() == null) {
+                if (mainClass.get() == null) {
                     Logger.warn("No Main-Class found in the MANIFEST.MF aborting Loader creation.");
                     return;
                 }
+
+                Logger.info("Found program entrypoint: {}", mainClass);
 
                 //manifest.getMainAttributes().replace("Main-Class", mainClass,"de.brownie.nativeutil.Bootstrap");
                 Logger.info("Replacing Main-Class in Manifest...");
@@ -280,7 +299,7 @@ public class NativeTransformer extends ClassTransformer {
                 resourceEntry.setContent(byteArrayOutputStream.toByteArray());
             }
 
-            if(mainClass.get() != null)
+            if (mainClass.get() != null)
                 mainClass.set(mainClass.get().replace(".", "/"));
         });
 
@@ -294,6 +313,7 @@ public class NativeTransformer extends ClassTransformer {
 
         return true;
     }
+
 
     public Snippets getSnippets() {
         return snippets;
