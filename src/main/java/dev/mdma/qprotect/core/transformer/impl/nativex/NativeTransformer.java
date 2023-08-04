@@ -124,7 +124,7 @@ public class NativeTransformer extends ClassTransformer {
         Logger.info("Processing " + classNode.name);
 
         if (classNode.methods.stream().noneMatch(x -> x.name.equals("<clinit>"))) {
-            classNode.methods.add(new MethodNode(Opcodes.ASM7, Opcodes.ACC_STATIC, "<clinit>", "()V", null,
+            classNode.methods.add(new MethodNode(Opcodes.ASM9, Opcodes.ACC_STATIC, "<clinit>", "()V", null,
                     new String[0]));
         }
         staticClassProvider.newClass();
@@ -213,8 +213,9 @@ public class NativeTransformer extends ClassTransformer {
         AtomicBoolean standalone = new AtomicBoolean(true);
         ArrayList<ClassNode> mainNodes = new ArrayList<>();
         qProtectAPI.Factory.getAPI().getResources().forEach(resourceEntry -> {
+            //forge mod
             if(resourceEntry.getFileName().equals("mcmod.info")) {
-                Logger.info("detected forge mod");
+                Logger.info("Detected forge mod");
                 standalone.set(false);
                 jarFile.getClassPool().getClasses().forEach(classNode ->
                         classNode.methods.stream().filter(methodNode ->
@@ -232,6 +233,23 @@ public class NativeTransformer extends ClassTransformer {
                 });
             }
 
+            //fabric mod
+            if(resourceEntry.getFileName().equals("fabric.mod.json")) {
+                Logger.info("Detected fabric mod");
+                standalone.set(false);
+                jarFile.getClassPool().getClasses().stream().filter(classNode ->
+                        classNode.interfaces.contains("net/fabricmc/api/ModInitializer")).forEach(
+                                classNode -> {
+                                    Logger.info("Found fabric main: {}", classNode.name);
+                                    MethodNode initializer = BytecodeUtils.getOrCreateClinit(classNode);
+                                    InsnList injectList = new InsnList();
+                                    injectList.add(new InsnNode(ACONST_NULL));
+                                    injectList.add(new MethodInsnNode(INVOKESTATIC, "de/brownie/nativeutil/Bootstrap", "main", "([Ljava/lang/String;)V"));
+                                    initializer.instructions.insertBefore(initializer.instructions.getFirst(), injectList);
+                });
+            }
+
+            //standalone program
             if(resourceEntry.getFileName().equals("META-INF/MANIFEST.MF") && standalone.get()) {
                 Logger.info("detected application");
                 Logger.info(resourceEntry.getFileName());
