@@ -6,12 +6,13 @@
 
     <groupId>dev.mdma.qprotect</groupId>
     <artifactId>native-transformer</artifactId>
-    <version>1.3-SNAPSHOT</version>
+    <version>1.4</version>
 
     <properties>
         <maven.compiler.source>8</maven.compiler.source>
         <maven.compiler.target>8</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <asm.version>9.6</asm.version>
     </properties>
 
     <repositories>
@@ -25,7 +26,26 @@
         <dependency>
             <groupId>dev.mdma.qprotect</groupId>
             <artifactId>qprotect-api</artifactId>
-            <version>1.10.1</version>
+            <version>1.11.0</version>
+            <scope>compile</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.ow2.asm</groupId>
+            <artifactId>asm</artifactId>
+            <version>${asm.version}</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.ow2.asm</groupId>
+            <artifactId>asm-tree</artifactId>
+            <version>${asm.version}</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.tinylog</groupId>
+            <artifactId>tinylog-api</artifactId>
+            <version>2.6.2</version>
+            <scope>provided</scope>
         </dependency>
     </dependencies>
 
@@ -48,39 +68,6 @@
                     <showDeprecation>true</showDeprecation>
                     <showWarnings>true</showWarnings>
                 </configuration>
-            </plugin>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-shade-plugin</artifactId>
-                <version>3.4.1</version>
-                <executions>
-                    <execution>
-                        <phase>package</phase>
-                        <goals>
-                            <goal>shade</goal>
-                        </goals>
-                        <configuration>
-                            <createDependencyReducedPom>false</createDependencyReducedPom>
-                            <filters>
-                                <filter>
-                                    <artifact>*:*</artifact>
-                                    <excludes>
-                                        <exclude>META-INF/LICENSE.txt</exclude>
-                                        <exclude>META-INF/NOTICE.txt</exclude>
-                                        <exclude>META-INF/LICENSE</exclude>
-                                        <exclude>META-INF/NOTICE</exclude>
-                                        <exclude>META-INF/maven/**</exclude>
-                                        <exclude>META-INF/HTTPS___.DSA</exclude>
-                                        <exclude>META-INF/HTTPS___.SF</exclude>
-                                        <exclude>module-info.class</exclude>
-                                        <exclude>io.airlift:bytecode</exclude>
-                                        <exclude>cgp/**</exclude>
-                                    </excludes>
-                                </filter>
-                            </filters>
-                        </configuration>
-                    </execution>
-                </executions>
             </plugin>
         </plugins>
     </build>
